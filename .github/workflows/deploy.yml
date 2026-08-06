@@ -1,0 +1,96 @@
+name: Build and Deploy to EKS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: house-price-ui
+  AWS_REGION: us-east-1
+  EKS_CLUSTER: mlops-coe
+
+jobs:
+
+  docker:
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Repository Lowercase
+        run: |
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Build Docker Image
+        run: |
+          docker build \
+          -t ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }} \
+          -t ghcr.io/${OWNER}/${IMAGE_NAME}:latest .
+
+      - name: Push Docker Image
+        run: |
+          docker push ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }}
+          docker push ghcr.io/${OWNER}/${IMAGE_NAME}:latest
+
+  # deploy:
+
+  #   needs: docker
+
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+  #         aws-region: us-east-1
+
+  #     - name: Configure kubectl
+  #       run: |
+  #         aws eks update-kubeconfig \
+  #           --name mlops-coe \
+  #           --region us-east-1
+
+  #     - name: Deploy Application
+  #       run: |
+  #         kubectl apply -f k8s/namespace.yaml
+  #         kubectl apply -f k8s/deployment.yaml
+  #         kubectl apply -f k8s/service.yaml
+
+  #     - name: Update Deployment Image
+  #       run: |
+  #         OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+
+  #         kubectl set image deployment/house-price-ui \
+  #         house-price-ui=ghcr.io/${OWNER}/house-price-ui:${{ github.sha }} \
+  #         -n streamlit
+
+  #     - name: Wait for Rollout
+  #       run: |
+  #         kubectl rollout status deployment/house-price-ui -n streamlit
