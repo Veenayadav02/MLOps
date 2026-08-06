@@ -54,7 +54,7 @@ jobs:
           docker push ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }}
           docker push ghcr.io/${OWNER}/${IMAGE_NAME}:latest
 
-  # deploy:
+  ## deploy:
 
   #   needs: docker
 
