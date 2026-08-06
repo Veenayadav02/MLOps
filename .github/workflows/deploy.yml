@@ -46,8 +46,10 @@ jobs:
       - name: Build Docker Image
         run: |
           docker build \
-          -t ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }} \
-          -t ghcr.io/${OWNER}/${IMAGE_NAME}:latest .
+            -f mlops/house_price_mlflow/Dockerfile \
+            -t ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }} \
+            -t ghcr.io/${OWNER}/${IMAGE_NAME}:latest \
+            mlops/house_price_mlflow
 
       - name: Push Docker Image
         run: |
