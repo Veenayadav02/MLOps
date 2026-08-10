@@ -70,11 +70,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
-        
-#OIDC Debug Step
+      - name: Print GitHub Context
+        run: |
+          echo "Repository: $GITHUB_REPOSITORY"
+          echo "Repository Owner: $GITHUB_REPOSITORY_OWNER"
+          echo "Ref: $GITHUB_REF"     
       - name: Print OIDC Claims
         uses: actions/github-script@v7
         with:
