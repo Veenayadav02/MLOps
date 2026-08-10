@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: house-price-ui
+  namespace: streamlit
+  labels:
+    app: house-price-ui
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: house-price-ui
+
+  template:
+    metadata:
+      labels:
+        app: house-price-ui
+
+    spec:
+      containers:
+      - name: house-price-ui
+
+        image: ghcr.io/veenayadav02/house-price-ui:latest
+
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 8501
+
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+
+        readinessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 20
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /_stcore/health
+            port: 8501
+          initialDelaySeconds: 40
+          periodSeconds: 20
