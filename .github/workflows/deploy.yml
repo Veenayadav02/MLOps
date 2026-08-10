@@ -73,6 +73,10 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+        
+#OIDC Debug Step
+      - name: Get OIDC Token Claims
+        uses: github/actions-oidc-debugger@v1
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
