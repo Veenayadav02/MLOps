@@ -108,3 +108,4 @@ jobs:
       - name: Verify Service
         run: |
           kubectl get svc -n ${NAMESPACE}
+          #
