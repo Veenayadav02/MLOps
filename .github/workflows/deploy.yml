@@ -1,4 +1,4 @@
-name: Build and Deploy to EKS
+name: Build and Deploy to Amazon EKS
 
 on:
   push:
@@ -13,21 +13,32 @@ permissions:
 env:
   IMAGE_NAME: house-price-ui
   AWS_REGION: us-east-1
-  EKS_CLUSTER: mlops-coe
+  CLUSTER_NAME: mlops-coe
+  NAMESPACE: streamlit
+  DEPLOYMENT_NAME: house-price-ui
 
 jobs:
 
-  docker:
+  build:
 
     runs-on: ubuntu-latest
 
     outputs:
-      image: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
 
     steps:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Set Image Tag
+        id: tag
+        run: |
+          echo "image_tag=${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Convert Repository Owner to Lowercase
+        run: |
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,60 +50,61 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Repository Lowercase
-        run: |
-          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-
       - name: Build Docker Image
         run: |
           docker build \
             -f house_price_mlflow/Dockerfile \
-            -t ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }} \
+            -t ghcr.io/${OWNER}/${IMAGE_NAME}:${{ steps.tag.outputs.image_tag }} \
             -t ghcr.io/${OWNER}/${IMAGE_NAME}:latest \
             house_price_mlflow
 
       - name: Push Docker Image
         run: |
-          docker push ghcr.io/${OWNER}/${IMAGE_NAME}:${{ github.sha }}
+          docker push ghcr.io/${OWNER}/${IMAGE_NAME}:${{ steps.tag.outputs.image_tag }}
           docker push ghcr.io/${OWNER}/${IMAGE_NAME}:latest
 
-  ## deploy:
+  deploy:
 
-  #   needs: docker
+    needs: build
 
-  #   runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
-  #   steps:
+    steps:
 
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v4
-  #       with:
-  #         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-  #         aws-region: us-east-1
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-  #     - name: Configure kubectl
-  #       run: |
-  #         aws eks update-kubeconfig \
-  #           --name mlops-coe \
-  #           --region us-east-1
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name $CLUSTER_NAME \
+            --region $AWS_REGION
 
-  #     - name: Deploy Application
-  #       run: |
-  #         kubectl apply -f k8s/namespace.yaml
-  #         kubectl apply -f k8s/deployment.yaml
-  #         kubectl apply -f k8s/service.yaml
+      - name: Convert Repository Owner to Lowercase
+        run: |
+          echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
-  #     - name: Update Deployment Image
-  #       run: |
-  #         OWNER=$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')
+      - name: Update Deployment Image
+        run: |
+          kubectl set image deployment/${DEPLOYMENT_NAME} \
+          house-price-ui=ghcr.io/${OWNER}/${IMAGE_NAME}:${{ needs.build.outputs.image_tag }} \
+          -n ${NAMESPACE}
 
-  #         kubectl set image deployment/house-price-ui \
-  #         house-price-ui=ghcr.io/${OWNER}/house-price-ui:${{ github.sha }} \
-  #         -n streamlit
+      - name: Verify Rollout
+        run: |
+          kubectl rollout status deployment/${DEPLOYMENT_NAME} \
+          -n ${NAMESPACE}
 
-  #     - name: Wait for Rollout
-  #       run: |
-  #         kubectl rollout status deployment/house-price-ui -n streamlit
+      - name: Verify Pods
+        run: |
+          kubectl get pods -n ${NAMESPACE}
+
+      - name: Verify Service
+        run: |
+          kubectl get svc -n ${NAMESPACE}
