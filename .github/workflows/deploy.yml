@@ -89,6 +89,10 @@ jobs:
 
             console.log(JSON.stringify(payload, null, 2));
 
+      - name: Check OIDC Environment
+       run: |
+         echo "TOKEN URL: ${ACTIONS_ID_TOKEN_REQUEST_URL:+present}"
+         echo "TOKEN TOKEN: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+present}"
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
