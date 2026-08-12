@@ -88,7 +88,13 @@ jobs:
 
       - name: Verify MLflow Tracking URI
         run: |
-          echo "MLflow tracking URI is configured"
+          echo "Testing MLflow UI..."
+          curl -i "${MLFLOW_TRACKING_URI}/"
+
+          echo ""
+          echo "Testing MLflow API..."
+          curl -i \
+          "${MLFLOW_TRACKING_URI}/api/2.0/mlflow/experiments/get-by-name?experiment_name=HousePriceExperiment"
 
       - name: Run ML Training
         run: |
