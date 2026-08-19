@@ -13,6 +13,20 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/healthcheck-path: /mlflow/
     alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/transforms.mlflow: >
+      [
+        {
+          "type": "url-rewrite",
+          "urlRewriteConfig": {
+            "rewrites": [
+              {
+                "regex": "^/mlflow/api/(.*)$",
+                "replace": "/api/$1"
+              }
+            ]
+          }
+        }
+      ]
 
 spec:
   ingressClassName: alb
